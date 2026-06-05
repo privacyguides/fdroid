@@ -1,14 +1,13 @@
-repo_url: https://privacyguides.github.io/fdroid/fdroid/repo
+repo_url: https://privacyguides.github.io/fdroid/repo
 repo_name: Privacy Guides
-repo_description: >-
-   An F-Droid repository from Privacy Guides
-
-repo_keyalias: KEYALIAS
+repo_description: An F-Droid repository from Privacy Guides
 
 keystore: keystore.keystore
 
-keystorepass: "KEYSTORE_PASS"
-
-keypass: "KEY_PASS"
-
-keydname: KEYDNAME
+# Secrets are injected at runtime from the workflow environment (GitHub Actions
+# secrets) using fdroidserver's {env: VAR} substitution, so nothing sensitive is
+# ever written to disk or committed here.
+repo_keyalias: {env: KEY_ALIAS}
+keystorepass: {env: KEYSTORE_PASS}
+keypass: {env: KEY_PASS}
+keydname: {env: KEY_DNAME}

@@ -1,0 +1,2 @@
+# Pinned so actions/setup-python can cache the install. Renovate keeps it current.
+fdroidserver==2.4.5

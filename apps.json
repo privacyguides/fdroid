@@ -1,0 +1,9 @@
+[
+  {
+    "source": "github",
+    "repo": "privacyguides/verified-apps-android",
+    "category": "System",
+    "prerelease": true,
+    "fastlane": true
+  }
+]

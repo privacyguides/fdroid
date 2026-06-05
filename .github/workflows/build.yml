@@ -1,0 +1,307 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build.yml'
+      - 'apps.json'
+      - 'config.yml'
+      - 'requirements.txt'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+
+# Only the deploy job needs write access; keep the default token read-only.
+permissions:
+  contents: read
+
+# Never run two publishes at once (they share the Pages deployment).
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build repo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install tooling
+        run: |
+          set -euo pipefail
+          # fdroidserver builds and signs the repo (it bundles androguard for
+          # APK parsing); aapt reads each APK's package id; apksigner lets
+          # fdroidserver record each APK's signing certificate in the index.
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends aapt apksigner
+
+      - name: Prepare signing config
+        run: |
+          set -euo pipefail
+          mkdir -p fdroid/repo
+          echo "${KEYSTORE}" | base64 -d > fdroid/keystore.keystore
+          cp config.yml fdroid/config.yml
+          chmod 600 fdroid/keystore.keystore fdroid/config.yml
+        env:
+          KEYSTORE: ${{ secrets.KEYSTORE }}
+
+      - name: Resolve releases
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          : > build/entries.ndjson
+
+          while read -r app; do
+            SRC=$(jq -r '.source' <<<"$app")
+            REPO=$(jq -r '.repo // ""' <<<"$app")
+            CATEGORY=$(jq -r '.category // "System"' <<<"$app")
+            PRERELEASE=$(jq -r '.prerelease // false' <<<"$app")
+            FILTER=$(jq -r '.apk_filter // ""' <<<"$app")
+            FASTLANE=$(jq -r '.fastlane // true' <<<"$app")
+
+            APK_URL=""; TAG=""; AUTHOR="${REPO%%/*}"
+            SOURCE_URL=""; WEBSITE=""; ISSUE_TRACKER=""; CHANGELOG=""
+            LICENSE=""; DESCRIPTION=""; FASTLANE_REPO=""; FASTLANE_HOST=""
+
+            case "$SRC" in
+              github)
+                FASTLANE_HOST="github.com"
+                SOURCE_URL="https://github.com/$REPO"
+                ISSUE_TRACKER="$SOURCE_URL/issues"
+                CHANGELOG="$SOURCE_URL/releases"
+                if [ "$PRERELEASE" = "true" ]; then
+                  TAG=$(gh api "repos/$REPO/releases" --jq '[.[] | select(.draft | not)][0].tag_name')
+                else
+                  TAG=$(gh api "repos/$REPO/releases/latest" --jq '.tag_name')
+                fi
+                [ -n "$TAG" ] && [ "$TAG" != "null" ] || { echo "::error::No release found for $REPO"; exit 1; }
+                APK_URL=$(gh api "repos/$REPO/releases/tags/$TAG" \
+                  --jq "[.assets[] | select(.name | endswith(\".apk\")) | select(.name | contains(\"$FILTER\"))][0].browser_download_url")
+                meta=$(gh api "repos/$REPO")
+                DESCRIPTION=$(jq -r '.description // ""' <<<"$meta")
+                LICENSE=$(jq -r '.license.spdx_id // ""' <<<"$meta")
+                [ "$LICENSE" = "NOASSERTION" ] && LICENSE=""
+                WEBSITE=$(jq -r '.homepage // ""' <<<"$meta")
+                [ "$FASTLANE" = "true" ] && FASTLANE_REPO="$REPO"
+                ;;
+
+              gitlab)
+                FASTLANE_HOST="gitlab.com"
+                SOURCE_URL="https://gitlab.com/$REPO"
+                ISSUE_TRACKER="$SOURCE_URL/-/issues"
+                CHANGELOG="$SOURCE_URL/-/releases"
+                enc=$(printf '%s' "$REPO" | sed 's#/#%2F#g')
+                api="https://gitlab.com/api/v4/projects/$enc"
+                releases=$(curl -fsSL "$api/releases")
+                if [ "$PRERELEASE" = "true" ]; then
+                  rel=$(jq -c '.[0]' <<<"$releases")
+                else
+                  rel=$(jq -c '[.[] | select(.upcoming_release | not)][0]' <<<"$releases")
+                fi
+                TAG=$(jq -r '.tag_name // ""' <<<"$rel")
+                [ -n "$TAG" ] && [ "$TAG" != "null" ] || { echo "::error::No release found for $REPO"; exit 1; }
+                APK_URL=$(jq -r "[.assets.links[] | select(.name | endswith(\".apk\")) | select(.name | contains(\"$FILTER\"))][0].direct_asset_url" <<<"$rel")
+                DESCRIPTION=$(curl -fsSL "$api" | jq -r '.description // ""')
+                [ "$FASTLANE" = "true" ] && FASTLANE_REPO="$REPO"
+                ;;
+
+              codeberg)
+                FASTLANE_HOST="codeberg.org"
+                SOURCE_URL="https://codeberg.org/$REPO"
+                ISSUE_TRACKER="$SOURCE_URL/issues"
+                CHANGELOG="$SOURCE_URL/releases"
+                api="https://codeberg.org/api/v1/repos/$REPO"
+                releases=$(curl -fsSL "$api/releases?limit=20")
+                if [ "$PRERELEASE" = "true" ]; then
+                  rel=$(jq -c '[.[] | select(.draft | not)][0]' <<<"$releases")
+                else
+                  rel=$(jq -c '[.[] | select(.draft | not) | select(.prerelease | not)][0]' <<<"$releases")
+                fi
+                TAG=$(jq -r '.tag_name // ""' <<<"$rel")
+                [ -n "$TAG" ] && [ "$TAG" != "null" ] || { echo "::error::No release found for $REPO"; exit 1; }
+                APK_URL=$(jq -r "[.assets[] | select(.name | endswith(\".apk\")) | select(.name | contains(\"$FILTER\"))][0].browser_download_url" <<<"$rel")
+                proj=$(curl -fsSL "$api")
+                DESCRIPTION=$(jq -r '.description // ""' <<<"$proj")
+                WEBSITE=$(jq -r '.website // ""' <<<"$proj")
+                [ "$FASTLANE" = "true" ] && FASTLANE_REPO="$REPO"
+                ;;
+
+              apk)
+                APK_URL=$(jq -r '.url' <<<"$app")
+                SOURCE_URL=$(jq -r '.source_url // ""' <<<"$app")
+                WEBSITE=$(jq -r '.website // ""' <<<"$app")
+                DESCRIPTION=$(jq -r '.description // ""' <<<"$app")
+                AUTHOR=$(jq -r '.author // ""' <<<"$app")
+                FASTLANE="false"
+                ;;
+
+              *)
+                echo "::error::Unknown source '$SRC' in apps.json"; exit 1 ;;
+            esac
+
+            [ -n "$APK_URL" ] && [ "$APK_URL" != "null" ] \
+              || { echo "::error::No .apk asset found for source=$SRC repo=$REPO"; exit 1; }
+            [ -n "$WEBSITE" ] && [ "$WEBSITE" != "null" ] || WEBSITE="$SOURCE_URL"
+
+            APK_NAME=$(basename "${APK_URL%%\?*}")
+            case "$APK_NAME" in *.apk) ;; *) APK_NAME="${SRC}-${AUTHOR:-app}-$(date +%s%N).apk" ;; esac
+
+            jq -nc \
+              --arg source "$SRC" --arg apk_url "$APK_URL" --arg apk_name "$APK_NAME" \
+              --arg category "$CATEGORY" --arg author "$AUTHOR" --arg tag "$TAG" \
+              --arg source_url "$SOURCE_URL" --arg website "$WEBSITE" \
+              --arg issue_tracker "$ISSUE_TRACKER" --arg changelog "$CHANGELOG" \
+              --arg license "$LICENSE" --arg description "$DESCRIPTION" \
+              --argjson fastlane "${FASTLANE:-false}" \
+              --arg fastlane_repo "$FASTLANE_REPO" --arg fastlane_host "$FASTLANE_HOST" \
+              '{source:$source, apk_url:$apk_url, apk_name:$apk_name, category:$category,
+                author:$author, tag:$tag, source_url:$source_url, website:$website,
+                issue_tracker:$issue_tracker, changelog:$changelog, license:$license,
+                description:$description, fastlane:$fastlane, fastlane_repo:$fastlane_repo,
+                fastlane_host:$fastlane_host}' >> build/entries.ndjson
+          done < <(jq -c '.[]' apps.json)
+
+          jq -s '.' build/entries.ndjson > build/manifest.json
+          echo "Resolved $(jq length build/manifest.json) app(s):"
+          jq -r '.[] | "  - \(.source): \(.apk_name) (\(.tag))"' build/manifest.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Download APKs
+        run: |
+          set -euo pipefail
+          while read -r e; do
+            url=$(jq -r '.apk_url' <<<"$e")
+            name=$(jq -r '.apk_name' <<<"$e")
+            echo "Downloading $name"
+            curl -fL --retry 3 -o "fdroid/repo/$name" "$url"
+          done < <(jq -c '.[]' build/manifest.json)
+
+      - name: Import metadata
+        run: |
+          set -euo pipefail
+          # JSON-escape a value so it is always a valid YAML scalar.
+          y() { jq -n --arg v "$1" '$v'; }
+
+          while read -r e; do
+            APK_NAME=$(jq -r '.apk_name' <<<"$e")
+            CATEGORY=$(jq -r '.category' <<<"$e")
+            AUTHOR=$(jq -r '.author' <<<"$e")
+            SOURCE_URL=$(jq -r '.source_url' <<<"$e")
+            WEBSITE=$(jq -r '.website' <<<"$e")
+            ISSUE_TRACKER=$(jq -r '.issue_tracker' <<<"$e")
+            CHANGELOG=$(jq -r '.changelog' <<<"$e")
+            LICENSE=$(jq -r '.license' <<<"$e")
+            DESCRIPTION=$(jq -r '.description' <<<"$e")
+            FASTLANE=$(jq -r '.fastlane' <<<"$e")
+            FASTLANE_REPO=$(jq -r '.fastlane_repo' <<<"$e")
+            FASTLANE_HOST=$(jq -r '.fastlane_host' <<<"$e")
+
+            apk="fdroid/repo/$APK_NAME"
+            badging=$(aapt dump badging "$apk")
+            PKGID=$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" <<<"$badging")
+            VC=$(sed -n "s/.*versionCode='\([^']*\)'.*/\1/p" <<<"$badging" | head -n1)
+            VN=$(sed -n "s/.*versionName='\([^']*\)'.*/\1/p" <<<"$badging" | head -n1)
+            LABEL=$(sed -n "s/^application-label:'\([^']*\)'.*/\1/p" <<<"$badging")
+            [ -n "$PKGID" ] || { echo "::error::Could not read package id from $apk"; exit 1; }
+            echo "Metadata for $PKGID ($VN / $VC)"
+
+            # Fastlane metadata describes the app's current state, so pull it
+            # from the default branch (which also carries the full
+            # changelogs/<versionCode> history), not the release tag.
+            HAS_FASTLANE=false
+            if [ "$FASTLANE" = "true" ] && [ -n "$FASTLANE_REPO" ] && [ "$FASTLANE_REPO" != "null" ]; then
+              tmp=$(mktemp -d)
+              if git clone --depth 1 "https://$FASTLANE_HOST/$FASTLANE_REPO" "$tmp" 2>/dev/null; then
+                src="$tmp/fastlane/metadata/android"
+                if [ -d "$src" ]; then
+                  dst="fdroid/metadata/$PKGID"
+                  mkdir -p "$dst"
+                  cp -r "$src"/. "$dst"/
+                  # F-Droid expects localized graphics under an images/ subfolder.
+                  for locale in "$dst"/*/; do
+                    [ -d "$locale" ] || continue
+                    for g in icon.png featureGraphic.png promoGraphic.png tvBanner.png \
+                             phoneScreenshots sevenInchScreenshots tenInchScreenshots \
+                             tvScreenshots wearScreenshots; do
+                      if [ -e "$locale/$g" ]; then
+                        mkdir -p "$locale/images"
+                        mv "$locale/$g" "$locale/images/"
+                      fi
+                    done
+                  done
+                  HAS_FASTLANE=true
+                fi
+              fi
+              rm -rf "$tmp"
+            fi
+
+            {
+              printf 'AuthorName: %s\n' "$(y "$AUTHOR")"
+              printf 'Categories:\n  - %s\n' "$(y "$CATEGORY")"
+              [ -n "$LICENSE" ] && [ "$LICENSE" != "null" ] && printf 'License: %s\n' "$(y "$LICENSE")"
+              [ -n "$SOURCE_URL" ] && printf 'SourceCode: %s\n' "$SOURCE_URL"
+              [ -n "$WEBSITE" ] && printf 'WebSite: %s\n' "$WEBSITE"
+              [ -n "$ISSUE_TRACKER" ] && printf 'IssueTracker: %s\n' "$ISSUE_TRACKER"
+              [ -n "$CHANGELOG" ] && printf 'Changelog: %s\n' "$CHANGELOG"
+              [ -n "$VN" ] && printf 'CurrentVersion: %s\n' "$(y "$VN")"
+              [ -n "$VC" ] && printf 'CurrentVersionCode: %s\n' "$VC"
+              if [ "$HAS_FASTLANE" != "true" ]; then
+                text="$DESCRIPTION"; [ -n "$text" ] && [ "$text" != "null" ] || text="$LABEL"
+                printf 'Name: %s\n' "$(y "$LABEL")"
+                printf 'Summary: %s\n' "$(y "$(printf '%s' "$text" | cut -c1-80)")"
+                printf 'Description: %s\n' "$(y "$text")"
+              fi
+            } > "fdroid/metadata/$PKGID.yml"
+          done < <(jq -c '.[]' build/manifest.json)
+
+      - name: Build and sign index
+        run: |
+          set -euo pipefail
+          cd fdroid
+          fdroid update --pretty --delete-unknown --use-date-from-apk
+        env:
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
+          KEY_PASS: ${{ secrets.KEY_PASS }}
+          KEY_DNAME: ${{ secrets.KEY_DNAME }}
+
+      - name: Assemble site
+        run: |
+          set -euo pipefail
+          # Publish only the signed repo/ directory — never the keystore,
+          # config, or source metadata.
+          mkdir -p public
+          cp -r fdroid/repo public/repo
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: public
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
