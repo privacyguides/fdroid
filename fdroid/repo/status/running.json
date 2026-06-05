@@ -1,0 +1,11 @@
+{
+  "/etc/issue.net": "Debian GNU/Linux 13",
+  "commandLine": [
+    "/usr/bin/fdroid update",
+    "--pretty",
+    "--delete-unknown",
+    "--use-date-from-apk"
+  ],
+  "startTimestamp": 1780638466000,
+  "subcommand": "update"
+}

@@ -1,0 +1,13 @@
+AuthorName: PrivacyGuides
+Categories:
+    - System
+CurrentVersion: 
+CurrentVersionCode: 
+Description: |
+    An Android app to more easily contribute to our Verified Apps database
+IssueTracker: https://github.com/PrivacyGuides/verified-apps-android/issues
+Name: 
+SourceCode: https://github.com/PrivacyGuides/verified-apps-android
+Summary: "An Android app to more easily contribute to our Verified Apps database"
+WebSite: https://github.com/PrivacyGuides/verified-apps-android
+Changelog: https://github.com/PrivacyGuides/verified-apps-android/releases
