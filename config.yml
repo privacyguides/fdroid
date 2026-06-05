@@ -1,7 +1,7 @@
-repo_url: https://breezy-weather.github.io/fdroid-repo/fdroid/repo
-repo_name: Breezy Weather
+repo_url: https://privacyguides.github.io/fdroid/fdroid/repo
+repo_name: Privacy Guides
 repo_description: >-
-   The F-Droid repository for Breezy Weather
+   An F-Droid repository from Privacy Guides
 
 repo_keyalias: KEYALIAS
 
