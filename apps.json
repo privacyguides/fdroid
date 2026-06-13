@@ -5,5 +5,12 @@
     "category": "System",
     "prerelease": true,
     "fastlane": true
+  },
+  {
+    "source": "github",
+    "repo": "magicgrants/skylight-wallet",
+    "category": "Money",
+    "prerelease": false,
+    "fastlane": true
   }
 ]
