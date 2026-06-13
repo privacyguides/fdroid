@@ -4,9 +4,9 @@ Privacy Guides hosts its own apps and select third-party applications here. We o
 
 ## Install
 
-**<https://privacyguides.github.io/fdroid/repo/>**
+**<https://fdroid.privacyguides.org/fdroid/repo/>**
 
-![](https://privacyguides.github.io/fdroid/repo/index.png)
+![](https://fdroid.privacyguides.org/fdroid/repo/index.png)
 
 Repository signing key fingerprint (SHA-256):
 
@@ -23,6 +23,10 @@ The following apps are available from this repo:
 - **Author: [MAGIC Grants](https://magicgrants.org/)**
 
   - [Skylight Wallet](https://skylight.magicgrants.org/) ([GitHub Releases](https://github.com/MAGICGrants/skylight-wallet/releases))
+
+- **Author: [GrapheneOS](https://grapheneos.org/)**
+
+  - App Store ([GitHub Releases](https://github.com/GrapheneOS/AppStore/releases))
 
 Privacy Guides does not endorse any apps we host here outside the fact that we have downloaded them from a secure original source. Apps can be submitted for inclusion if they demonstrate a particular need and have some relevance to the Privacy Guides community.
 

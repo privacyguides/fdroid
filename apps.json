@@ -12,5 +12,12 @@
     "category": "Money",
     "prerelease": false,
     "fastlane": true
+  },
+  {
+    "source": "github",
+    "repo": "grapheneos/appstore",
+    "category": "App Store & Updater",
+    "prerelease": false,
+    "fastlane": true
   }
 ]
