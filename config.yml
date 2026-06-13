@@ -11,3 +11,6 @@ repo_keyalias: {env: KEY_ALIAS}
 keystorepass: {env: KEYSTORE_PASS}
 keypass: {env: KEY_PASS}
 keydname: {env: KEY_DNAME}
+
+mirrors:
+  - url: https://privacyguides-fdroid.b-cdn.net/fdroid
