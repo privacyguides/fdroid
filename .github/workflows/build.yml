@@ -331,3 +331,24 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy static --project-name=fdroid-repo-e61d
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+
+  garage:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    name: Deploy to S3
+    needs: build
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: build
+          path: static/fdroid
+      - uses: hkdobrev/minio-deploy-action@v1
+        with:
+          endpoint: https://garage.jonaharagon.net
+          bucket: privacyguides-fdroid
+          access_key: ${{ secrets.GARAGE_KEY_ID }}
+          secret_key: ${{ secrets.GARAGE_SECRET_KEY }}
+          source_dir: "static/"
+          target_dir: "/"

@@ -1,4 +1,4 @@
-repo_url: https://privacyguides.github.io/fdroid/repo
+repo_url: https://fdroid.privacyguides.org/fdroid/repo
 repo_name: Privacy Guides
 repo_description: An F-Droid repository from Privacy Guides
 
@@ -13,5 +13,6 @@ keypass: {env: KEY_PASS}
 keydname: {env: KEY_DNAME}
 
 mirrors:
+  - url: https://fdroid-repo-e61d.pages.dev/fdroid
+  - url: https://privacyguides.github.io/fdroid
   - url: https://privacyguides-fdroid.b-cdn.net/fdroid
-  - url: https://fdroid-repo-e61d.privacy-guides.workers.dev/fdroid
