@@ -312,26 +312,6 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
 
-  cloudflare:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      deployments: write
-    name: Deploy to Cloudflare Pages
-    needs: build
-    steps:
-      - uses: actions/download-artifact@v8
-        with:
-          name: build
-          path: static/fdroid
-      - name: Deploy
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy static --project-name=fdroid-repo-e61d
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-
   garage:
     runs-on: ubuntu-latest
     permissions:

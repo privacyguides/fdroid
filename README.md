@@ -1,6 +1,6 @@
 # F-Droid Repo
 
-An F-Droid repo from Privacy Guides.
+Privacy Guides hosts its own apps and select third-party applications here. We only host official binaries and grab updates at least once daily.
 
 ## Install
 
@@ -19,6 +19,12 @@ The following apps are available from this repo:
 - **Author: [Privacy Guides](https://www.privacyguides.org)**
 
   - [Verified Apps](https://github.com/privacyguides/verified-apps-android) ([GitHub Releases](https://github.com/privacyguides/verified-apps-android/releases))
+
+- **Author: [MAGIC Grants](https://magicgrants.org/)**
+
+  - [Skylight Wallet](https://skylight.magicgrants.org/) ([GitHub Releases](https://github.com/MAGICGrants/skylight-wallet/releases))
+
+Privacy Guides does not endorse any apps we host here outside the fact that we have downloaded them from a secure original source. Apps can be submitted for inclusion if they demonstrate a particular need and have some relevance to the Privacy Guides community.
 
 ## Misc.
 

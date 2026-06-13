@@ -2,7 +2,7 @@
   {
     "source": "github",
     "repo": "privacyguides/verified-apps-android",
-    "category": "System",
+    "category": "Security",
     "prerelease": true,
     "fastlane": true
   },

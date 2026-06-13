@@ -1,6 +1,6 @@
 repo_url: https://fdroid.privacyguides.org/fdroid/repo
 repo_name: Privacy Guides
-repo_description: An F-Droid repository from Privacy Guides
+repo_description: Privacy Guides hosts its own apps and select third-party applications here. We only host official binaries and grab updates at least once daily. Third party applications may be hosted if they have some relevance to the Privacy Guides community, but are not endorsed by Privacy Guides.
 
 keystore: keystore.keystore
 
@@ -13,6 +13,5 @@ keypass: {env: KEY_PASS}
 keydname: {env: KEY_DNAME}
 
 mirrors:
-  - url: https://fdroid-repo-e61d.pages.dev/fdroid
   - url: https://privacyguides.github.io/fdroid
   - url: https://privacyguides-fdroid.b-cdn.net/fdroid
