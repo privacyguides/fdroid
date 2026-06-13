@@ -14,3 +14,4 @@ keydname: {env: KEY_DNAME}
 
 mirrors:
   - url: https://privacyguides-fdroid.b-cdn.net/fdroid
+  - url: https://fdroid-repo-e61d.privacy-guides.workers.dev/fdroid
